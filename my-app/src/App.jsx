@@ -1,20 +1,20 @@
 
-import './App.css'
-import Fetch from  './components/Fetch.jsx'
 
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Fetch from './components/Fetch.jsx';
+import PostDetail from './components/PostDetail.jsx';
 
-function App() {
-  
-
+const App = () => {
   return (
-    <>
-      <div>
-        <Fetch/>
-        
+    <Router>
+      <Routes>
+        <Route path="/" element={<Fetch />} />
+        <Route path="/post/:id" element={<PostDetail />} />
+      </Routes>
+    </Router>
+  );
+};
 
-      </div>
-    </>
-  )
-}
+export default App;
 
-export default App

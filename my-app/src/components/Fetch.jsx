@@ -1,111 +1,124 @@
 
 
-
 import React, { useState, useEffect, useCallback } from "react";
 import {
-    Container,
-    TextField,
-    List,
-    ListItem,
-    ListItemText,
-    Typography,
-    CircularProgress,
-    Box
+  Container,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  Typography,
+  CircularProgress,
+  Box
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 const Fetch = () => {
-    const [data, setData] = useState([]);
-    const [currentPage, setCurrentPage] = useState(0);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [isFetching, setIsFetching] = useState(false);
+  const [data, setData] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isFetching, setIsFetching] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
 
-    const fetchData = useCallback(async (page) => {
-        try {
-            const response = await fetch(`https://hn.algolia.com/api/v1/search_by_date?tags=story&page=${page}`);
-            const jsonData = await response.json();
-            setData(prevData => [...prevData, ...jsonData.hits]); // Append new data to existing data
-            setCurrentPage(page + 1); // Increment page after fetching data from current page
-        } catch (error) {
-            console.error('Error fetching data:', error);
-        }
-    }, []);
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        // Initial fetch
-        fetchData(0);
+  const fetchData = useCallback(async (page) => {
+    try {
+      const response = await fetch(`https://hn.algolia.com/api/v1/search_by_date?tags=story&page=${page}`);
+      const jsonData = await response.json();
+      setData(prevData => [...prevData, ...jsonData.hits]);
+      setCurrentPage(page + 1);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  }, []);
 
-        // Polling every 10 seconds
-        const interval = setInterval(() => {
-            fetchData(currentPage);
-        }, 10000);
+  useEffect(() => {
+    fetchData(0);
+  }, [fetchData]);
 
-        return () => clearInterval(interval);
-    }, [currentPage, fetchData]);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsPolling(true);
+    }, 10000);
 
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.innerHeight + document.documentElement.scrollTop !== document.documentElement.offsetHeight || isFetching) {
-                return;
-            }
-            setIsFetching(true);
-        };
+    return () => clearInterval(interval);
+  }, []);
 
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [isFetching]);
+  useEffect(() => {
+    if (isPolling) {
+      fetchData(currentPage);
+      setIsPolling(false);
+    }
+  }, [isPolling, currentPage, fetchData]);
 
-    useEffect(() => {
-        if (!isFetching) return;
-
-        fetchData(currentPage).then(() => {
-            setIsFetching(false);
-        });
-    }, [isFetching, currentPage, fetchData]);
-
-    const handleSearch = (e) => {
-        setSearchTerm(e.target.value);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop !== document.documentElement.offsetHeight || isFetching) {
+        return;
+      }
+      setIsFetching(true);
     };
 
-    const filteredData = data.filter(item =>
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.author.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isFetching]);
 
-    return (
-        <Container>
-            <Typography variant="h2" gutterBottom>Latest Stories</Typography>
-            <TextField
-                fullWidth
-                label="Search by title or author"
-                variant="outlined"
-                value={searchTerm}
-                onChange={handleSearch}
-                margin="normal"
+  useEffect(() => {
+    if (!isFetching) return;
+
+    fetchData(currentPage).then(() => {
+      setIsFetching(false);
+    });
+  }, [isFetching, currentPage, fetchData]);
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleItemClick = (item) => {
+    navigate(`/post/${item.objectID}`);
+  };
+
+  const filteredData = data.filter(item =>
+    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.author.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <Container style={{ background: '#f2f6fc' }}>
+      <Typography variant="h2" gutterBottom>Latest Stories</Typography>
+      <TextField
+        fullWidth
+        label="Search by title or author"
+        variant="outlined"
+        value={searchTerm}
+        onChange={handleSearch}
+        margin="normal"
+      />
+      <List>
+        {filteredData.map((item, index) => (
+          <ListItem key={index} divider button onClick={() => handleItemClick(item)}>
+            <ListItemText
+              primary={item.title}
+              secondary={
+                <>
+                  <Typography variant="body2" color="textSecondary">Author: {item.author}</Typography>
+                  <Typography variant="body2" color="textSecondary">Created At: {item.created_at}</Typography>
+                  <Typography variant="body2" color="textSecondary">Tags: {item._tags.join(', ')}</Typography>
+                </>
+              }
             />
-            <List>
-                {filteredData.map((item, index) => (
-                    <ListItem key={index} divider>
-                        <ListItemText
-                            primary={item.title}
-                            secondary={
-                                <>
-                                    <Typography variant="body2" color="textSecondary">Author: {item.author}</Typography>
-                                    <Typography variant="body2" color="textSecondary">Number of Comments: {item.num_comments}</Typography>
-                                    <Typography variant="body2" color="textSecondary">Created At: {item.created_at}</Typography>
-                                    <Typography variant="body2" color="textSecondary">Tags: {item._tags.join(', ')}</Typography>
-                                </>
-                            }
-                        />
-                    </ListItem>
-                ))}
-            </List>
-            {isFetching && (
-                <Box display="flex" justifyContent="center" mt={2}>
-                    <CircularProgress />
-                </Box>
-            )}
-        </Container>
-    );
+          </ListItem>
+        ))}
+      </List>
+      {isFetching && (
+        <Box display="flex" justifyContent="center" mt={2}>
+          <CircularProgress />
+        </Box>
+      )}
+    </Container>
+  );
 };
 
 export default Fetch;
